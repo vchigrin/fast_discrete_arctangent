@@ -1,0 +1,99 @@
+#pragma once
+#include <array>
+#include <cmath>
+
+
+// May be useful with large SectorCount - in that case in is faster
+// then DiscreteAtanTableBased.
+template<size_t SectorCount, typename FloatT = float>
+class DiscreteAtanSimple {
+  static constexpr FloatT kInvSectorNumber =
+      SectorCount / static_cast<FloatT>(2. * M_PI);
+ public:
+  size_t SectorNumer(FloatT x, FloatT y) const {
+    // -pi ... pi
+    FloatT alpha = std::atan2(y, x);
+    if (alpha < 0.f) {
+      // 0 ... 2. * pi
+      alpha += static_cast<FloatT>(2. * M_PI);
+    }
+    return static_cast<FloatT>(alpha * kInvSectorNumber);
+  }
+};
+
+template<size_t SectorCount, typename FloatT = float>
+class DiscreteAtanTableBased {
+ public:
+  static_assert(SectorCount > 4, "Too few sectors");
+  static_assert(SectorCount % 8 == 0, "Sector count must be divisible by 8");
+
+  DiscreteAtanTableBased() {
+    InitTables();
+  }
+
+  size_t SectorNumer(FloatT x, FloatT y) const {
+    if (y < 0)
+      return SectorCount - SectorNumer_0_180(x, -y) - 1;
+    return SectorNumer_0_180(x, y);
+  }
+
+ private:
+  static constexpr size_t kIndicesCount = SectorCount / 4;
+
+  size_t SectorNumer_0_180(FloatT x, FloatT y) const {
+    if (x < 0)
+      return SectorCount / 2 - SectorNumer0_90(-x, y) - 1;
+    return SectorNumer0_90(x, y);
+  }
+
+  size_t SectorNumer0_90(FloatT x, FloatT y) const {
+    if (x > y)
+      return SectorNumer0_45(x, y);
+    // -1 since SectorNumer0_45 rounds angle to zero, we want preserve
+    // this  behavior here.
+    return SectorCount / 4 - SectorNumer0_45(y, x) - 1;
+  }
+
+  // Computes sector number for angles [0.. pi/4] (that is x >= y, x>=0, y>=0).
+  inline size_t SectorNumer0_45(FloatT x, FloatT y) const {
+    const FloatT tan_angle = y / x;
+    // tan(x) >= x  and tan(x) <=  4*x/3 for all x in [0 .. pi / 4]
+    // Since we round down (tan_angle * kIndicesCount), we get upper bound
+    // not greater then required.
+    size_t upper_bound = upper_bound_indices_[
+        static_cast<size_t>(tan_angle * kIndicesCount)];
+    // Make upper_bound exact for current angle (it may be less then required).
+    const FloatT* p = table_pi_4_.begin() + upper_bound;
+    while (*p <= tan_angle)
+      ++p;
+
+    return p - table_pi_4_.begin() - 1;
+  }
+
+  void InitTables() {
+    for (size_t k = 0; k < SectorCount / 8; ++k) {
+      const FloatT alpha = static_cast<FloatT>((2. * M_PI * k) / SectorCount);
+      table_pi_4_[k] = std::tan(alpha);
+    }
+    // Last, out-of-range element to make search code simpler.
+    table_pi_4_[SectorCount / 8] = table_pi_4_[SectorCount / 8 - 1] + 1;
+    size_t start = 0;
+    for (size_t k = 0; k < kIndicesCount; ++k) {
+      const FloatT value = static_cast<FloatT>(k) / kIndicesCount;
+      while (table_pi_4_[start] < value) {
+        start++;
+      }
+      upper_bound_indices_[k] = start;
+    }
+    upper_bound_indices_[kIndicesCount] =
+      upper_bound_indices_[kIndicesCount - 1];
+  }
+  // Computed for sectors in range [0..pi/4]. All other can be obtained by
+  // mirroring.
+  // i-th element of the table contain lower boundary of the tan(alpha),
+  // that go to the sector with number i.
+  std::array<FloatT, SectorCount / 8 + 1> table_pi_4_;
+  // i-th element contain lowest index in table_pi_4_, that value greater
+  // then or equal to  i / kIndicesCount
+  std::array<int, kIndicesCount + 1> upper_bound_indices_;
+};
