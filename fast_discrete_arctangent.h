@@ -32,27 +32,37 @@ class DiscreteAtanTableBased {
   }
 
   size_t SectorNumer(FloatT x, FloatT y) const {
-    if (y < 0)
-      return SectorCount - SectorNumer_0_180(x, -y) - 1;
-    return SectorNumer_0_180(x, y);
+    // Compute result as base + multiplier * SectorNumer0_45(x, y);
+    int multiplier = 1;
+    int base = 0;
+    if (y < 0) {
+      // return SectorCount - SectorNumer_0_180(x, -y) - 1;
+      base = SectorCount - 1;
+      multiplier = -multiplier;
+      y = -y;
+    }
+    // Now x,y in 0...pi range.
+    if (x < 0) {
+      // return SectorCount / 2 - SectorNumer0_90(-x, y) - 1;
+      base += (SectorCount / 2 - 1) * multiplier;
+      multiplier = -multiplier;
+      x = -x;
+    }
+    // Now x,y in 0...pi / 2 range.
+    if (x <= y) {
+      // -1 since SectorNumer0_45 rounds angle to zero, we want preserve
+      // this  behavior here.
+      // return SectorCount / 4 - SectorNumer0_45(y, x) - 1;
+      base += (SectorCount / 4 - 1) * multiplier;
+      multiplier = -multiplier;
+      std::swap(x, y);
+    }
+    // Now x,y in 0...pi / 4 range.
+    return base + multiplier * SectorNumer0_45(x, y);
   }
 
  private:
   static constexpr size_t kIndicesCount = SectorCount / 4;
-
-  size_t SectorNumer_0_180(FloatT x, FloatT y) const {
-    if (x < 0)
-      return SectorCount / 2 - SectorNumer0_90(-x, y) - 1;
-    return SectorNumer0_90(x, y);
-  }
-
-  size_t SectorNumer0_90(FloatT x, FloatT y) const {
-    if (x > y)
-      return SectorNumer0_45(x, y);
-    // -1 since SectorNumer0_45 rounds angle to zero, we want preserve
-    // this  behavior here.
-    return SectorCount / 4 - SectorNumer0_45(y, x) - 1;
-  }
 
   // Computes sector number for angles [0.. pi/4] (that is x >= y, x>=0, y>=0).
   inline size_t SectorNumer0_45(FloatT x, FloatT y) const {
