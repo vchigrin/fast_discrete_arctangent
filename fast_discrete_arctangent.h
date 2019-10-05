@@ -57,12 +57,32 @@ class DiscreteAtanTableBased {
   // Computes sector number for angles [0.. pi/4] (that is x >= y, x>=0, y>=0).
   inline size_t SectorNumer0_45(FloatT x, FloatT y) const {
     const FloatT tan_angle = y / x;
-    // tan(x) >= x  and tan(x) <=  4*x/3 for all x in [0 .. pi / 4]
-    // Since we round down (tan_angle * kIndicesCount), we get upper bound
-    // not greater then required.
     size_t upper_bound = upper_bound_indices_[
         static_cast<size_t>(tan_angle * kIndicesCount)];
-    // Make upper_bound exact for current angle (it may be less then required).
+    /*
+    Since we round down (tan_angle * kIndicesCount), we get upper bound
+    not greater then required.
+    We can not start with "too big" position here.
+    PROOF:
+    By definition how we build upper_bound_indices_, and because entries
+    in table_pi_4_ monotonically increase, (as does tan function on [0...pi/4],
+    we have for each integral i
+    table_pi_4_[upper_bound_indices_[i]] >= i / kIdxCount
+    table_pi_4_[upper_bound_indices_[i] - 1] < i / kIdxCount
+
+    Here we take i = floor(tan_angle * kIndicesCount). Fromm here and
+    from last inequality we have
+
+    table_pi_4_[upper_bound_indices_[i] - 1] < floor(tan * kIdxCount) / kIdxCount
+    and
+    floor(tan * kIdxCount) / kIdxCount <= tan * kIdxCount / kIdxCount = tan
+
+    So we've proved that previous entry in table_pi_4_ - k
+    table_pi_4_[upper_bound_indices_[i] - 1] < tan
+    that we required.
+    */
+
+    // Find exact upper_bound for current angle (it may be less then required).
     const FloatT* p = table_pi_4_.begin() + upper_bound;
     while (*p <= tan_angle)
       ++p;
