@@ -13,8 +13,7 @@ std::pair<float, float> kTestTable[kNumComputations];
 
 void InitTestTable() {
   std::mt19937 generator;
- // std::uniform_real_distribution<float> dist(-5.f, 5.f);
-  std::uniform_real_distribution<float> dist(0.f, 5.f);
+  std::uniform_real_distribution<float> dist(-5.f, 5.f);
   for (auto& point : kTestTable) {
     do {
       point.first = dist(generator);
@@ -107,10 +106,10 @@ int main(int, char*[]) {
   InitTestTable();
   static const int kNumSectors = 2200;
 
-  const DiscreteAtanSimple<kNumSectors, double> slow_atan;
+  const DiscreteAtanSimple<kNumSectors, float> slow_atan;
   DoIt(slow_atan, "Slow computing:");
 
-  const DiscreteAtanTableBased<kNumSectors, double> fast_atan;
+  const DiscreteAtanTableBased<kNumSectors, float> fast_atan;
   DoIt(fast_atan, "Fast computing:");
 
   Compare(slow_atan, fast_atan);
