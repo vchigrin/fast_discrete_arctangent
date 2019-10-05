@@ -62,13 +62,17 @@ class DiscreteAtanTableBased {
   }
 
  private:
-  static constexpr size_t kIndicesCount = SectorCount / 4;
+  // That describes helper index table size. Generally, bigger tables
+  // allow better approximite serch start position and give better performance.
+  // Although too big tables may cause performance degradation due to cache
+  // misses, so tune this size based on exact hardware and workload.
+  static constexpr size_t kIndicesCount = SectorCount;
 
   // Computes sector number for angles [0.. pi/4] (that is x >= y, x>=0, y>=0).
   inline size_t SectorNumer0_45(FloatT x, FloatT y) const {
     const FloatT tan_angle = y / x;
-    size_t upper_bound = upper_bound_indices_[
-        static_cast<size_t>(tan_angle * kIndicesCount)];
+    auto upper_bound = upper_bound_indices_[
+        static_cast<int>(tan_angle * kIndicesCount)];
     /*
     Since we round down (tan_angle * kIndicesCount), we get upper bound
     not greater then required.
@@ -125,5 +129,8 @@ class DiscreteAtanTableBased {
   std::array<FloatT, SectorCount / 8 + 1> table_pi_4_;
   // i-th element contain lowest index in table_pi_4_, that value greater
   // then or equal to  i / kIndicesCount
-  std::array<int, kIndicesCount + 1> upper_bound_indices_;
+  static_assert(
+      SectorCount / 8 < std::numeric_limits<uint16_t>::max(),
+      "Adjust type of index array");
+  std::array<uint16_t, kIndicesCount + 1> upper_bound_indices_;
 };
