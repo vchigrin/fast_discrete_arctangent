@@ -33,15 +33,17 @@ void PrintResult(const T& calc, double x, double y) {
 
 
 template<typename T>
-void TestPerf(const T& calc, const std::string& name) {
-
+int TestPerf(const T& calc, const std::string& name) {
+  // Unused result to prevent compiler optimize out all SectorNumer() calls.
+  int unused = 0;
   const auto start = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < kNumComputations; ++i) {
-    calc.SectorNumer(kTestTable[i].first, kTestTable[i].second);
+    unused += calc.SectorNumer(kTestTable[i].first, kTestTable[i].second);
   }
   const auto end = std::chrono::high_resolution_clock::now();
   size_t ns_count = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
   std::cout << name << " took " << ns_count << " nanoseconds, " << static_cast<float>(ns_count) / kNumComputations << " ns/computation" << std::endl;
+  return unused;
 }
 
 template<typename T>
@@ -113,29 +115,5 @@ int main(int, char*[]) {
   DoIt(fast_atan, "Fast computing:");
 
   Compare(slow_atan, fast_atan);
- // std::cout << "Avg dist " << ((float)total_dist) /  total_calls << std::endl;
-  /*
-  Linear search, with [x,4/3 range]
-  Fast computing: took 371566842 nanoseconds, 37.1567 ns/computation
-  Testing finished 0 big errors and 96 by one errors found among 10000000 points
-  Avg dist 17.1494
-
-
-  Binary search, with [x,4/3 range]
-  Fast computing: took 453782378 nanoseconds, 45.3782 ns/computation
-  Testing finished 0 big errors and 96 by one errors found among 10000000 points
-  Avg dist 35.6263
-
-  Separate index table of size  700
-Fast computing: took 167781529 nanoseconds, 16.7782 ns/computation
-Testing finished 0 big errors and 96 by one errors found among 10000000 points
-Avg dist 1.20894
-
-
-Fast computing: took 175751151 nanoseconds, 17.5751 ns/computation
-Testing finished 0 big errors and 96 by one errors found among 10000000 points
-Avg dist 1.25375
-  */
-
   return 0;
 }
