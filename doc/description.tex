@@ -1,0 +1,221 @@
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\title{Fast discrete arctangent computation}
+\author{Vyacheslav Chigrin}
+\maketitle
+
+\section{Introducion}
+Discrete arctangent in that article is a two argument function $\mathcal{F}(x, y)$ parametrized by
+integral parameter N. Current library supports only $N = 8k, k \in Z, N > 8$.
+It returns zero-based "sector number" in which lies beam from coordinate origin to
+point (x, y). Sectors are counted from 0 to N-1 counter clock-wise,
+first sector contains beams for angles  [0, $\frac{2\pi}{N}$).
+
+More formally speaking, assume $\alpha$ is an angle between $x$ axis and
+point $(x, y)$ value of $\mathcal{F}(x, y) \in Z$ so that
+\begin{equation}
+\label{eq:F_def}
+\mathcal{F}(x, y)\frac{2\pi}{N} \leq \alpha < (\mathcal{F}(x, y) + 1)\frac{2\pi}{N}
+\end{equation}
+or, equivalently
+$$
+\label{eq:F_def_floor}
+\mathcal{F}(x, y) = \lfloor N \frac{\alpha}{2\pi} \rfloor
+$$
+In this document we'll use either two-argument form $\mathcal{F}(x, y)$ when
+calclating arcatngent for point $(x, y)$ or single argument form
+$\mathcal{F}(\alpha)$ for simplicity - here $\alpha$ is an angle between $x$ axis
+and $(x,y)$ point, as written above.
+
+\section{Math background}
+\subsection{Reduction problem to angles only in $[0, \frac{\pi}{4})$}
+
+If $\alpha \ge \pi$ then we can compute
+\begin{equation}
+\mathcal{F}(\alpha - \pi) =
+\lfloor \frac{(\alpha - \pi)N}{2\pi} \rfloor =
+\lfloor \frac{\alpha N}{2\pi} - \frac{N}{2} \rfloor =
+\lfloor \frac{\alpha N}{2\pi} \rfloor - \frac{N}{2} =
+\mathcal{F}(\alpha) - \frac{N}{2}
+\end{equation}
+Here last expression is valid since $\frac{N}{2} \in Z$ by definition of
+$N$ suported by the library. Re-ordering last inequality gives us
+\begin{equation}
+\label{eq:F_mirror_1}
+\mathcal{F}(\alpha) = \mathcal{F}(\alpha - \pi) + \frac{N}{2}
+\end{equation}
+Calculating point $(x', y')$ for angle $\alpha - \pi$ from point $(x, y)$ is
+straighforward. We can re-write original point coords as
+\begin{equation}
+x = R\cos(\alpha); y = R\sin(\alpha)
+\end{equation}
+where $R$ is a distance from coordinate origin to point $(x, y)$. So
+\begin{multline}
+\label{eq:F_mirror_1_coords}
+x' = R\cos(\alpha - \pi) = R(\cos(\alpha)\cos(\pi) + \sin(\alpha)\sin(\pi)) =
+-R\cos(\alpha) = -x \\
+y' = R\sin(\alpha - \pi) = R(\sin(\alpha)\cos(\pi) - \cos(\alpha)\sin(\pi)) =
+-R\sin(\alpha) = -y
+\end{multline}
+
+If $\pi > \alpha \ge \frac{\pi}{2}$ then same as in \eqref{eq:F_mirror_1} we get
+\begin{equation}
+\label{eq:F_mirror_2}
+\mathcal{F}(\alpha) = \mathcal{F}(\alpha - \frac{\pi}{2}) + \frac{N}{4}
+\end{equation}
+And new coords $(x', y')$
+\begin{multline}
+\label{eq:F_mirror_2_coords}
+x' = R\cos(\alpha - \frac{\pi}{2}) = R(\cos(\alpha)\cos(\frac{\pi}{2}) + \sin(\alpha)\sin(\frac{\pi}{2})) =
+R\sin(\alpha) = y \\
+y' = R\sin(\alpha - \frac{\pi}{2}) = R(\sin(\alpha)\cos(\frac{\pi}{2}) - \cos(\alpha)\sin(\frac{\pi}{2})) =
+-R\cos(\alpha) = -x
+\end{multline}
+
+And finally if $\frac{\pi}{2} > \alpha \ge \frac{\pi}{4}$ then same as in \eqref{eq:F_mirror_1} we get
+\begin{equation}
+\label{eq:F_mirror_3}
+\mathcal{F}(\alpha) = \mathcal{F}(\alpha - \frac{\pi}{4}) + \frac{N}{8}
+\end{equation}
+And new coords $(x', y')$
+\begin{multline}
+x' = R\cos(\alpha - \frac{\pi}{4}) = R(\cos(\alpha)\cos(\frac{\pi}{4}) + \sin(\alpha)\sin(\frac{\pi}{4})) =
+R\frac{\sqrt{2}}{2}(\cos(\alpha) + \sin(\alpha)) = \frac{\sqrt{2}}{2}(x + y)\\
+y' = R\sin(\alpha - \frac{\pi}{4}) = R(\sin(\alpha)\cos(\frac{\pi}{4}) - \cos(\alpha)\sin(\frac{\pi}{4})) =
+R\frac{\sqrt{2}}{2}(\sin(\alpha) - \cos(\alpha)) = \frac{\sqrt{2}}{2}(y - x)
+\end{multline}
+Since multiplying both coords to the same scalar does not change angle $\alpha$ we're interested in, we
+can use in our calculations.
+\begin{multline}
+\label{eq:F_mirror_3_coords}
+x' = (x + y) \\
+y' = (y - x) \\
+\end{multline}
+
+\subsection{Computing function for angles in $[0, \frac{\pi}{4})$}
+Assume $f = \mathcal{F}(\alpha)$ for $\alpha \in [0, \frac{\pi}{4})$.
+On that interval range for f, assuming N is multiple by 8.
+\begin{equation}
+\label{eq:f_range}
+0 \leq f < \frac{N}{8}
+\end{equation}
+Or, since $f \in Z$
+\begin{equation}
+\label{eq:f_range_2}
+0 \leq f \leq \frac{N}{8} - 1
+\end{equation}
+
+Since $\tan$ function monotonically increases on that interval we can write
+\begin{equation}
+\label{eq:f_def_2}
+\tan(f\frac{2\pi}{N}) \leq \tan(\alpha) < \tan((f + 1)\frac{2\pi}{N})
+\end{equation}
+
+Let's introduce table T:
+\begin{equation}
+\label{eq:T_def}
+T[k] = \tan(\frac{2\pi k}{N}), k \in Z, k \in [0, \frac{N}{8}]
+\end{equation}
+Note that $T[k+1] > T[k] \forall  k$ since $\tan$ is monotonically increasing.
+
+\begin{equation}
+\label{eq:T_alpha_ineq}
+T[f] \le \tan(\alpha) < T[f + 1]
+\end{equation}
+and our task is quickly find elemend $f$, satisfying this inequality.
+
+Assume we can build index table $J$ of size $S$, so that
+\begin{equation}
+\label{eq:J_def}
+T[J[k] - 1] < \frac{k}{S} \leq T[J[k]],
+J[k] \geq 0 \forall k
+\end{equation}
+We can satisfy this inequality only if $S > Smin$.
+This inequality becomes possible when $\frac{1}{S} < \min_{i}(T[i + 1] - T[i])$.
+That is evident - since values $\frac{k}{S}$ placed uniformly, in that
+case between any $T[i]$ and $T[i + 1]$ will be at least one $\frac{k}{S}$ value.
+So
+\begin{multline}
+\frac{1}{S} < \min_{i}(\tan(\frac{2\pi (i + 1)}{N}) - \tan(\frac{2\pi i}{N})) \\
+ =  \min_{i}(\frac{\sin(\frac{2\pi (i + 1)}{N} - \frac{2\pi i}{N})}{\cos(\frac{2\pi (i + 1)}{N})\cos(\frac{2\pi i}{N})})
+ =  \min_{i}(\frac{\sin(\frac{2\pi}{N})}{\cos(\frac{2\pi (i + 1)}{N})\cos(\frac{2\pi i}{N})})
+\end{multline}
+Since $\cos$ funcion is monotonically decreasing on $[0, \frac{\pi}{2})$, maximum value in
+denominator achieved when $i = 0$. So we get
+\begin{equation}
+\label{eq:Smin_value}
+\frac{1}{S} < \frac{\sin(\frac{2\pi}{N})}{\cos(\frac{2\pi}{N})} = \tan(\frac{2\pi}{N}),
+S > Smin = \frac{1}{\tan(\frac{2\pi}{N})}
+\end{equation}
+
+Having table $J$ we can quickly find values of $f$ with it we can prove that
+\begin{equation}
+\label{eq:J_ineq_prove}
+T[J[\lfloor \tan(\alpha) S \rfloor - 1]] \leq T[f] \leq T[J[\lfloor \tan(\alpha) S \rfloor]]
+\end{equation}
+in that case we need make only one comparison after computing $\tan(\alpha) = \frac{y}{x}$.
+
+First prove left part of \eqref{eq:J_ineq_prove}. From \eqref{eq:J_def} we get
+\begin{equation}
+T[J[\lfloor \tan(\alpha) S \rfloor - 1]] < \frac{\lfloor \tan(\alpha) S \rfloor}{S} \leq \frac{\tan(\alpha)S}{S} = \tan\alpha
+\end{equation}
+From this and from \eqref{eq:T_alpha_ineq} we get
+\begin{equation}
+\label{eq:P1}
+T[J[\lfloor \tan(\alpha) S \rfloor - 1]] < T[f + 1]
+\end{equation}
+Because values in T monotonically increase, and $f \in Z$ from \eqref{eq:P1} we have
+\begin{equation}
+T[J[\lfloor \tan(\alpha) S \rfloor - 1]] \leq T[f]
+\end{equation}
+that is the left part of \eqref{eq:J_ineq_prove}, Q.E.D.
+
+Proof of the right part of \eqref{eq:J_ineq_prove}. Assume that it is wrong, that is
+\begin{equation}
+\label{eq:Wrong_inequality}
+T[f] > T[J[\lfloor \tan(\alpha) S \rfloor]]
+\end{equation}
+From \eqref{eq:T_def} and \eqref{eq:F_def_floor}
+\begin{multline}
+T[f] = \tan(\frac{2\pi f}{N}) = \tan(\frac{2\pi \lfloor N \frac{\alpha}{2 \pi} \rfloor}{N}) \\
+\tan(\frac{2\pi \lfloor N \frac{\alpha}{2 \pi} \rfloor}{N}) <  \tan(\frac{2\pi (\frac{N \alpha}{2 \pi} - 1)}{N}) =
+\tan(\alpha - \frac{2\pi}{N})
+\end{multline}
+Substititute this and \eqref{eq:J_def} to \eqref{eq:Wrong_inequality} and get
+\begin{multline}
+\tan(\alpha - \frac{2\pi}{N}) > T[f] > T[J[\lfloor \tan(\alpha) S \rfloor]] \ge \frac{\lfloor \tan(\alpha) S \rfloor}{S} \\
+\tan(\alpha - \frac{2\pi}{N}) > \frac{\lfloor \tan(\alpha) S \rfloor}{S} > \frac{\tan(\alpha) S - 1}{S} = \tan(\alpha) - \frac{1}{S} \\
+\frac{1}{S} > \tan(\alpha) - \tan(\alpha - \frac{2\pi}{N}) = \frac{\sin(\frac{2\pi}{N})}{\cos(\alpha)\cos(\frac{2\pi}{N})} = \\
+  \tan(\frac{2\pi}{N}) \frac{1}{\cos(\alpha)} \ge \tan(\frac{2\pi}{N})
+\end{multline}
+But before in \eqref{eq:Smin_value} we took $\frac{1}{S} < \tan(\frac{2\pi}{N})$. We get to contradiction,
+so right part of \eqref{eq:J_ineq_prove} is proven $\forall S > Smin$.
+
+\section{Algorighm}
+\begin{enumerate}
+\item Build table T as described in \eqref{eq:T_def}.
+\item Take $S = \lceil \frac{1}{\tan(\frac{2\pi}{N})} \rceil$.
+\item Build table J as described in \eqref{eq:J_def}.
+\item For each input point:
+\begin{enumerate}
+\item For input point $(x, y)$ get corresponding point $(x', y')$, arctangent of
+      which lies in $[0, \frac{\pi}{4})$. Also compute required offset for result.
+      Use for that consequently equations
+      \eqref{eq:F_mirror_1}, \eqref{eq:F_mirror_1_coords},
+      \eqref{eq:F_mirror_2}, \eqref{eq:F_mirror_2_coords},
+      \eqref{eq:F_mirror_3}, \eqref{eq:F_mirror_3_coords}.
+\item Calculate $\tan(\alpha) = \frac{x'}{y'}.$
+\item Make initial guess $r = J[\lfloor \tan(\alpha)S \rfloor] - 1$. From
+    \eqref{eq:J_ineq_prove} we know that either $f = r$ or $f = r + 1$.
+\item Compare $\tan(\alpha)$ with $T[r + 1]$. Accorgind to \eqref{eq:T_alpha_ineq}
+    must be $\tan(\alpha) < T[f + 1]$ if this inequality does not hold for $f = r$, we
+    must use $f = r + 1$.
+\item Get final function result $\mathcal{F}(x, y)$ having computed value of
+$f$ for $(x', y')$ and offset for it.
+\end{enumerate}
+\end{enumerate}
+For sake of better CPU cache usage we can put both value of $J[r]$ and $T[r + 1]$
+in the same table item.
+
+\end{document}
