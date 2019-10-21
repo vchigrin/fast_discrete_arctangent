@@ -111,7 +111,7 @@ int main(int, char*[]) {
   const DiscreteAtanSimple<kNumSectors, float> slow_atan;
   DoIt(slow_atan, "Slow computing:");
 
-  const DiscreteAtanTableBased<kNumSectors, float> fast_atan;
+  const DiscreteAtanTableBased<float> fast_atan(kNumSectors);
   DoIt(fast_atan, "Fast computing:");
 
   Compare(slow_atan, fast_atan);
