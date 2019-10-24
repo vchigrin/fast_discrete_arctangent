@@ -71,10 +71,11 @@ class DiscreteAtanTableBased {
   }
 
   void InitTables() {
-    std::vector<FloatT> table_pi_4;
+    std::vector<double> table_pi_4;
     table_pi_4.resize(sector_count_ / 8 + 1);
     for (size_t k = 0; k < sector_count_ / 8; ++k) {
-      const FloatT alpha = static_cast<FloatT>((2. * M_PI * k) / sector_count_);
+      // Always use doubles during initialization to get highest precision.
+      const double alpha = (2. * M_PI * k) / sector_count_;
       table_pi_4[k] = std::tan(alpha);
     }
     // Last, out-of-range element to make search code simpler.
@@ -82,12 +83,12 @@ class DiscreteAtanTableBased {
     size_t start = 0;
     table_.resize(indices_count_ + 1);
     for (size_t k = 0; k <= indices_count_; ++k) {
-      const FloatT value = static_cast<FloatT>(k) / indices_count_;
+      const double value = static_cast<double>(k) / indices_count_;
       while (table_pi_4[start] < value) {
         start++;
       }
       table_[k].j_value = start - 1;
-      table_[k].t_value = table_pi_4[start];
+      table_[k].t_value = static_cast<FloatT>(table_pi_4[start]);
     }
   }
   const int sector_count_;
