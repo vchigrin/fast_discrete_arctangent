@@ -6,20 +6,27 @@
 
 // May be useful with large SectorCount - in that case in is faster
 // then DiscreteAtanTableBased.
-template<size_t SectorCount, typename FloatT = float>
+template<typename FloatT = float>
 class DiscreteAtanSimple {
-  static constexpr FloatT kInvSectorNumber =
-      SectorCount / static_cast<FloatT>(2. * M_PI);
  public:
-  size_t SectorNumer(FloatT x, FloatT y) const {
+  DiscreteAtanSimple(int sector_count)
+      : sector_count_(sector_count),
+        inv_sector_number_(sector_count / static_cast<FloatT>(2. * M_PI)) {}
+
+  int SectorNumer(FloatT x, FloatT y) const {
     // -pi ... pi
     FloatT alpha = std::atan2(y, x);
-    if (alpha < 0.f) {
-      // 0 ... 2. * pi
-      alpha += static_cast<FloatT>(2. * M_PI);
-    }
-    return static_cast<FloatT>(alpha * kInvSectorNumber);
+    // pi ... 3. * pi
+    alpha += static_cast<FloatT>(2. * M_PI);
+    // N/2 .. 3N/2
+    int result = static_cast<int>(alpha * inv_sector_number_);
+    result = result % sector_count_;
+    return result;
   }
+
+ private:
+  const int sector_count_;
+  const FloatT inv_sector_number_;
 };
 
 template<typename FloatT = float>
@@ -34,7 +41,7 @@ class DiscreteAtanTableBased {
     InitTables();
   }
 
-  size_t SectorNumer(FloatT x, FloatT y) const {
+  int SectorNumer(FloatT x, FloatT y) const {
     // Compute result as offset + SectorNumer0_45(x, y);
     int offset = 0;
     if (y < 0) {
@@ -63,7 +70,7 @@ class DiscreteAtanTableBased {
 
  private:
   // Computes sector number for angles [0.. pi/4] (that is x >= y, x>=0, y>=0).
-  inline size_t SectorNumer0_45(FloatT x, FloatT y) const {
+  inline int SectorNumer0_45(FloatT x, FloatT y) const {
     const FloatT tan_angle = y / x;
     const auto& entry = table_[static_cast<int>(tan_angle * indices_count_)];
     int r = entry.j_value;

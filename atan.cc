@@ -8,12 +8,14 @@
 #include "fast_discrete_arctangent.h"
 
 namespace {
-const int kNumComputations = 10000000;
-std::pair<float, float> kTestTable[kNumComputations];
+const int kNumComputations = 1e7;
+using FloatT=float;
+
+std::pair<FloatT, FloatT> kTestTable[kNumComputations];
 
 void InitTestTable() {
   std::mt19937 generator;
-  std::uniform_real_distribution<float> dist(-5.f, 5.f);
+  std::uniform_real_distribution<FloatT> dist(-5.f, 5.f);
   for (auto& point : kTestTable) {
     do {
       point.first = dist(generator);
@@ -25,9 +27,9 @@ void InitTestTable() {
 
 }  // namespace
 
-template<typename T>
-void PrintResult(const T& calc, double x, double y) {
-  const size_t n = calc.SectorNumer(x, y);
+template<typename T, typename FloatT>
+void PrintResult(const T& calc, FloatT x, FloatT y) {
+  const int n = calc.SectorNumer(x, y);
   std::cout << "x=" << x << ", y=" << y << " sector " << n << std::endl;
 }
 
@@ -76,12 +78,11 @@ void Compare(const T1& expected_calc, const T2& tested_calc) {
   int num_by_one_errors = 0;
   for (int i = 0; i < kNumComputations; ++i) {
     const auto& point = kTestTable[i];
-    size_t expected_sector = expected_calc.SectorNumer(
+    int expected_sector = expected_calc.SectorNumer(
         point.first, point.second);
-    size_t tested_sector = tested_calc.SectorNumer(
+    int tested_sector = tested_calc.SectorNumer(
         point.first, point.second);
-    const int diff = std::abs(static_cast<int>(expected_sector) -
-        static_cast<int>(tested_sector));
+    const int diff = std::abs(expected_sector - tested_sector);
     if (diff == 1) {
       num_by_one_errors++;
       ////
@@ -108,10 +109,10 @@ int main(int, char*[]) {
   InitTestTable();
   static const int kNumSectors = 2200;
 
-  const DiscreteAtanSimple<kNumSectors, float> slow_atan;
+  const DiscreteAtanSimple<FloatT> slow_atan(kNumSectors);
   DoIt(slow_atan, "Slow computing:");
 
-  const DiscreteAtanTableBased<float> fast_atan(kNumSectors);
+  const DiscreteAtanTableBased<FloatT> fast_atan(kNumSectors);
   DoIt(fast_atan, "Fast computing:");
 
   Compare(slow_atan, fast_atan);
