@@ -13,6 +13,10 @@ class DiscreteAtanSimple {
       : sector_count_(sector_count),
         inv_sector_number_(sector_count / static_cast<FloatT>(2. * M_PI)) {}
 
+  int sector_count() const {
+    return sector_count_;
+  }
+
   int SectorNumer(FloatT x, FloatT y) const {
     // -pi ... pi
     FloatT alpha = std::atan2(y, x);
@@ -39,6 +43,10 @@ class DiscreteAtanTableBased {
     assert(sector_count > 8);
     assert(sector_count % 8 == 0);
     InitTables();
+  }
+
+  int sector_count() const {
+    return sector_count_;
   }
 
   int SectorNumer(FloatT x, FloatT y) const {
@@ -85,8 +93,10 @@ class DiscreteAtanTableBased {
       const double alpha = (2. * M_PI * k) / sector_count_;
       table_pi_4[k] = std::tan(alpha);
     }
-    // Last, out-of-range element to make search code simpler.
-    table_pi_4[sector_count_ / 8] = table_pi_4[sector_count_ / 8 - 1] + 1;
+    // Last entry in table corresponds pi / 4 angle, tangent of which equal to
+    // 1. exactly. Set it explicity to avoid going out-of-range in the loop
+    // below due to rounding issues.
+    table_pi_4[sector_count_ / 8] = 1.;
     size_t start = 0;
     table_.resize(indices_count_ + 1);
     for (size_t k = 0; k <= indices_count_; ++k) {

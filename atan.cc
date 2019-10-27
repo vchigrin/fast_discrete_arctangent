@@ -27,13 +27,6 @@ void InitTestTable() {
 
 }  // namespace
 
-template<typename T, typename FloatT>
-void PrintResult(const T& calc, FloatT x, FloatT y) {
-  const int n = calc.SectorNumer(x, y);
-  std::cout << "x=" << x << ", y=" << y << " sector " << n << std::endl;
-}
-
-
 template<typename T>
 int TestPerf(const T& calc, const std::string& name) {
   // Unused result to prevent compiler optimize out all SectorNumer() calls.
@@ -48,30 +41,6 @@ int TestPerf(const T& calc, const std::string& name) {
   return unused;
 }
 
-template<typename T>
-void DoIt(const T& calc,  const std::string& name) {
-  std::cout << "\n==== Using " << name << "=========" << std::endl;
-
-  PrintResult(calc, 1.f, 1.f);
-  PrintResult(calc, 2.f, 1.f);
-  PrintResult(calc, 3.f, 1.f);
-  PrintResult(calc, 4.f, 1.f);
-  PrintResult(calc, 5.f, 1.f);
-  std::cout << std::endl;
-
-  PrintResult(calc, 1.f, 0.f);
-  PrintResult(calc, 1.f, 1.f);
-  PrintResult(calc, 0.f, 1.f);
-  PrintResult(calc, -1.f, 1.f);
-  PrintResult(calc, -1.f, 0.f);
-  PrintResult(calc, -1.f, -1.f);
-  PrintResult(calc, 0.f, -1.f);
-  PrintResult(calc, 1.f, -1.f);
-
-
-  TestPerf(calc, name);
-}
-
 template<typename T1, typename T2>
 void Compare(const T1& expected_calc, const T2& tested_calc) {
   int num_errors = 0;
@@ -82,7 +51,8 @@ void Compare(const T1& expected_calc, const T2& tested_calc) {
         point.first, point.second);
     int tested_sector = tested_calc.SectorNumer(
         point.first, point.second);
-    const int diff = std::abs(expected_sector - tested_sector);
+    int diff = std::abs(expected_sector - tested_sector);
+    diff = std::min(diff, expected_calc.sector_count() - diff);
     if (diff == 1) {
       num_by_one_errors++;
       ////
@@ -94,7 +64,10 @@ void Compare(const T1& expected_calc, const T2& tested_calc) {
       ////
     } else if (diff > 1) {
       std::cerr << "Error on point " << point.first
-                << ";" << point.second << std::endl;
+                << ";" << point.second  << "."
+                << " expected " << expected_sector
+                << " tested " << tested_sector
+                << std::endl;
       return;
       num_errors++;
     }
@@ -110,11 +83,17 @@ int main(int, char*[]) {
   static const int kNumSectors = 2200;
 
   const DiscreteAtanSimple<FloatT> slow_atan(kNumSectors);
-  DoIt(slow_atan, "Slow computing:");
+  TestPerf(slow_atan, "Slow computing:");
 
   const DiscreteAtanTableBased<FloatT> fast_atan(kNumSectors);
-  DoIt(fast_atan, "Fast computing:");
+  TestPerf(fast_atan, "Fast computing:");
 
-  Compare(slow_atan, fast_atan);
+  std::cout << "Comparing Slow computing (double) and fast computing "
+            << typeid(FloatT).name() << std::endl;
+  Compare(DiscreteAtanSimple<double>(kNumSectors), fast_atan);
+  std::cout << "Comparing Slow computing (double) and Slow computing (float) "
+            << std::endl;
+  Compare(DiscreteAtanSimple<double>(kNumSectors),
+          DiscreteAtanSimple<float>(kNumSectors));
   return 0;
 }
