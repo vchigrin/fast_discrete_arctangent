@@ -51,19 +51,18 @@ class DiscreteAtanTableBased {
 
   int SectorNumer(FloatT x, FloatT y) const {
     // Compute result as offset + SectorNumer0_45(x, y);
-    int offset = 0;
-    if (y < 0) {
-      offset += sector_count_ / 2;
-      x = -x;
-      y = -y;
-    }
-    // Now x,y in 0...pi range.
-    if (x < 0) {
-      offset += sector_count_ / 4;
-      const FloatT new_y = -x;
-      x = y;
-      y = new_y;
-    }
+    const LocalTableItem local_table[] = {
+      {x, y, 0},                                         // x >=0, y >= 0
+      {y, -x, sector_count_ / 4},                        // x < 0, y >= 0
+      {-y, x, sector_count_ / 2 + sector_count_ / 4},    // x >= 0, y < 0
+      {-x, -y, sector_count_ / 2},                       // x < 0, y < 0
+    };
+    const int idx =
+        static_cast<int>(y < 0) * 2 +
+        static_cast<int>(x < 0);
+    x = local_table[idx].x;
+    y = local_table[idx].y;
+    int offset = local_table[idx].offset;
     // Now x,y in 0...pi / 2 range.
     if (x <= y) {
       offset += sector_count_ / 8;
@@ -77,8 +76,14 @@ class DiscreteAtanTableBased {
   }
 
  private:
+  struct LocalTableItem {
+    const FloatT x;
+    const FloatT y;
+    const int offset;
+  };
+
   // Computes sector number for angles [0.. pi/4] (that is x >= y, x>=0, y>=0).
-  inline int SectorNumer0_45(FloatT x, FloatT y) const {
+  int SectorNumer0_45(FloatT x, FloatT y) const {
     const FloatT tan_angle = y / x;
     const auto& entry = table_[static_cast<int>(tan_angle * indices_count_)];
     int r = entry.j_value;

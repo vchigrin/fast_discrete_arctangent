@@ -18,10 +18,10 @@ In our tests we divide 360-degrees circle to 2000 sectors.
 - Number of rounding errors compared to simple std::atan2(double) based solution - 1657.
 
 #### Our table based solution (float)
-- Time to process 20 millions points 370 ms **54% faster**.
+- Time to process 20 millions points 227 ms **72% faster**.
 - Number of rounding errors compared to simple std::atan2(double) based solution - *97* -
     even *better* then std::atan2 based solution for single-precision float.
 
 #### Our table based solution (double)
-- Time to process 20 millions points 365 ms **70% faster**.
+- Time to process 20 millions points 240 ms **80% faster**.
 - Number of rounding errors compared to simple std::atan2(double) based solution - *0*.
